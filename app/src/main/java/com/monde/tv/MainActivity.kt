@@ -72,6 +72,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun importM3u(text: String) {
+       items.clear()
         var name = ""; var group = ""; var logo = ""
         text.lineSequence().forEach { raw ->
             val line = raw.trim()
