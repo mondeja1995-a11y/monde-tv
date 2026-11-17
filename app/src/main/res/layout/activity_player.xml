@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:background="#101014">
+ <TextView android:id="@+id/playerTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="MONDE TV" android:textColor="#FFFFFF" android:textSize="20sp" android:padding="12dp"/>
+ <androidx.media3.ui.PlayerView android:id="@+id/playerView" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
+ <TextView android:id="@+id/qualityInfo" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Calidad: Automática" android:textColor="#FFFFFF" android:padding="12dp"/>
+ <Button android:id="@+id/qualityButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Calidad de imagen"/>
+</LinearLayout>

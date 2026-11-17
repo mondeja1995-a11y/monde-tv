@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+ android:layout_width="match_parent" android:layout_height="match_parent" android:background="#101014">
+ <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="18dp">
+  <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="MONDE TV" android:textColor="#E50914" android:textSize="30sp" android:textStyle="bold"/>
+  <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Todo tu entretenimiento, en un solo lugar." android:textColor="#FFFFFF" android:textSize="16sp" android:paddingBottom="16dp"/>
+  <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="INICIO  •  TV EN VIVO  •  PELÍCULAS  •  SERIES  •  ANIME" android:textColor="#FFFFFF" android:textStyle="bold" android:padding="12dp" android:background="#24242C"/>
+  <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Añadir lista M3U" android:textColor="#FFFFFF" android:textSize="20sp" android:textStyle="bold" android:paddingTop="20dp"/>
+  <EditText android:id="@+id/m3uUrl" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="https://servidor/lista.m3u" android:singleLine="true" android:textColor="#FFFFFF" android:textColorHint="#999999" android:inputType="textUri"/>
+  <Button android:id="@+id/loadM3u" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Cargar enlace M3U"/>
+  <Button android:id="@+id/openFile" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Elegir archivo M3U"/>
+  <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Conectar Xtream Codes" android:textColor="#FFFFFF" android:textSize="20sp" android:textStyle="bold" android:paddingTop="18dp"/>
+  <EditText android:id="@+id/server" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="URL del servidor" android:textColor="#FFFFFF" android:textColorHint="#999999" android:singleLine="true"/>
+  <EditText android:id="@+id/username" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Usuario" android:textColor="#FFFFFF" android:textColorHint="#999999" android:singleLine="true"/>
+  <EditText android:id="@+id/password" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Contraseña" android:textColor="#FFFFFF" android:textColorHint="#999999" android:inputType="textPassword" android:singleLine="true"/>
+  <Button android:id="@+id/connectXtream" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Conectar"/>
+  <TextView android:id="@+id/status" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Todavía no hay contenido. Añade una lista propia." android:textColor="#CCCCCC" android:paddingTop="14dp"/>
+  <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Canales y contenido" android:textColor="#FFFFFF" android:textSize="20sp" android:textStyle="bold" android:paddingTop="20dp"/>
+  <LinearLayout android:id="@+id/channelList" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"/>
+ </LinearLayout>
+</ScrollView>
