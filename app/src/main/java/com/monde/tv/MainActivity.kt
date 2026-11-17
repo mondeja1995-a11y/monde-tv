@@ -159,17 +159,11 @@ private fun renderItems() {
         categoryItems.take(100).forEach { item ->
 
             val card = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
+                orientation = LinearLayout.VERTICALisFocusable = true
+isFocusableInTouchMode = true
+background = getDrawable(R.drawable.tv_focus)
                 gravity = Gravity.CENTER
                 setPadding(dp(8), dp(10), dp(8), dp(8))
-
-                val bg = GradientDrawable().apply {
-                    setColor(Color.rgb(29, 29, 38))
-                    cornerRadius = dp(10).toFloat()
-                }
-
-                background = bg
-            }
 
             val logo = ImageView(this).apply {
                 layoutParams = LinearLayout.LayoutParams(
