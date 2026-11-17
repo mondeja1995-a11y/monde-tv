@@ -586,10 +586,10 @@ class MainActivity : AppCompatActivity() {
                 val catalog = withContext(Dispatchers.IO) {
 
                     val auth = requestXtream(
-                        account,
-                        "player_api.php?username=${enc(account.username)}" +
-                            "&password=${enc(account.password)}"
-                    )
+    account,
+    "player_api.php?username=${enc(account.username)}" +
+        "&password=${enc(account.password)}"
+) as? JSONObject ?: error("Respuesta de autenticación no válida")
 
                     val userInfo = auth.optJSONObject("user_info")
                         ?: error("Respuesta de autenticación no válida")
