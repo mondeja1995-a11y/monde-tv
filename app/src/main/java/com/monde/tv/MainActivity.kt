@@ -196,7 +196,10 @@ background = getDrawable(R.drawable.tv_focus)
             ).apply {
                 setMargins(dp(5), dp(3), dp(5), dp(8))
             }
-
+card.isClickable = true
+card.isFocusable = true
+card.isFocusableInTouchMode = true
+card.contentDescription = "Abrir ${item.name}"
             card.setOnClickListener {
                 startActivity(
                     Intent(this@MainActivity, PlayerActivity::class.java).apply {
