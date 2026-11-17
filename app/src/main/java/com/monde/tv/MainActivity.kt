@@ -5,12 +5,12 @@ import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.widget.*
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import coil.load
@@ -22,10 +22,17 @@ import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URLEncoder
+import java.util.UUID
+import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
 
-    private val client = OkHttpClient()
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(20, TimeUnit.SECONDS)
+        .readTimeout(45, TimeUnit.SECONDS)
+        .callTimeout(60, TimeUnit.SECONDS)
+        .build()
+
     private val items = mutableListOf<MediaItem>()
 
     private lateinit var status: TextView
@@ -36,9 +43,7 @@ class MainActivity : AppCompatActivity() {
 
     private var selectedCategory = "Inicio"
 
-    private var xtreamServer = ""
-    private var xtreamUser = ""
-    private var xtreamPassword = ""
+    private var xtreamAccount: SecureStore.XtreamAccount? = null
 
     private val categories = listOf(
         "Inicio",
@@ -50,13 +55,21 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         setContentView(R.layout.activity_main)
 
         status = findViewById(R.id.status)
         list = findViewById(R.id.channelList)
 
         createNavigation()
+        configureButtons()
+        restoreSavedData()
+    }
+
+    // =====================================================
+    // BOTONES
+    // =====================================================
+
+    private fun configureButtons() {
 
         findViewById<Button>(R.id.loadM3u).setOnClickListener {
             val url = findViewById<EditText>(R.id.m3uUrl)
@@ -70,9 +83,14 @@ class MainActivity : AppCompatActivity() {
         }
 
         findViewById<Button>(R.id.openFile).setOnClickListener {
+
             val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                 addCategory(Intent.CATEGORY_OPENABLE)
                 type = "*/*"
+                addFlags(
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                        Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+                )
             }
 
             startActivityForResult(intent, pickFile)
@@ -81,13 +99,93 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.connectXtream).setOnClickListener {
             connectXtream()
         }
-
-        renderItems()
     }
 
-    // --------------------------------------------------
-    // NAVEGACIÓN PRINCIPAL
-    // --------------------------------------------------
+    // =====================================================
+    // RECUPERAR DATOS GUARDADOS
+    // =====================================================
+
+    private fun restoreSavedData() {
+
+        try {
+            xtreamAccount = SecureStore.getXtreamAccount(this)
+
+            xtreamAccount?.let { account ->
+                findViewById<EditText>(R.id.server).setText(account.server)
+                findViewById<EditText>(R.id.username).setText(account.username)
+                findViewById<EditText>(R.id.password).setText(account.password)
+            }
+
+            val savedSources = SecureStore.getM3uSources(this)
+
+            if (savedSources.isEmpty()) {
+                if (xtreamAccount != null) {
+                    loadXtreamCatalog(xtreamAccount!!, false)
+                } else {
+                    renderItems()
+                }
+                return
+            }
+
+            status.text = "Recuperando listas guardadas..."
+
+            lifecycleScope.launch {
+
+                val restored = mutableListOf<MediaItem>()
+                var successfulSources = 0
+
+                for (source in savedSources) {
+                    try {
+                        val content = withContext(Dispatchers.IO) {
+                            if (source.isFile) {
+                                contentResolver.openInputStream(
+                                    Uri.parse(source.uri)
+                                )?.bufferedReader()?.use {
+                                    it.readText()
+                                } ?: ""
+                            } else {
+                                downloadText(source.url)
+                            }
+                        }
+
+                        val parsed = parseM3u(content)
+                        if (parsed.isNotEmpty()) {
+                            restored.addAll(parsed)
+                            successfulSources++
+                        }
+
+                    } catch (_: Exception) {
+                        // Una lista que ya no esté disponible
+                        // no impide recuperar las demás.
+                    }
+                }
+
+                items.clear()
+                items.addAll(restored)
+
+                if (restored.isNotEmpty()) {
+                    selectedCategory = "Inicio"
+                    updateNavigation()
+                    renderItems()
+                    status.text =
+                        "$successfulSources listas recuperadas · ${items.size} elementos"
+                } else if (xtreamAccount != null) {
+                    loadXtreamCatalog(xtreamAccount!!, false)
+                } else {
+                    status.text = "No se pudieron recuperar las listas guardadas."
+                    renderItems()
+                }
+            }
+
+        } catch (e: Exception) {
+            status.text = "Error al recuperar datos: ${e.message}"
+            renderItems()
+        }
+    }
+
+    // =====================================================
+    // NAVEGACIÓN
+    // =====================================================
 
     private fun createNavigation() {
 
@@ -104,19 +202,27 @@ class MainActivity : AppCompatActivity() {
             parent.addView(navigation, index)
         }
 
+        val scroll = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            addView(navigation)
+        }
+
+        if (parent != null) {
+            parent.removeView(navigation)
+            val index = parent.indexOfChild(status)
+            parent.addView(scroll, index)
+        }
+
         categories.forEach { category ->
 
             val button = TextView(this).apply {
-
                 text = category
                 textSize = 14f
                 gravity = Gravity.CENTER
                 setPadding(dp(14), dp(12), dp(14), dp(12))
-
                 isFocusable = true
                 isFocusableInTouchMode = true
                 isClickable = true
-
                 background = getDrawable(R.drawable.tv_focus)
 
                 setOnClickListener {
@@ -132,7 +238,6 @@ class MainActivity : AppCompatActivity() {
             )
 
             params.setMargins(dp(4), dp(8), dp(4), dp(8))
-
             navigation.addView(button, params)
         }
 
@@ -146,7 +251,6 @@ class MainActivity : AppCompatActivity() {
         for (i in 0 until navigation.childCount) {
 
             val button = navigation.getChildAt(i) as TextView
-
             val active = button.text.toString() == selectedCategory
 
             button.setTextColor(
@@ -161,11 +265,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // --------------------------------------------------
-    // IMPORTAR ARCHIVO M3U
-    // --------------------------------------------------
+    // =====================================================
+    // ARCHIVO M3U
+    // =====================================================
 
-    @Deprecated("Use Activity Result API in production")
+    @Deprecated("Se conserva para compatibilidad con el proyecto actual")
     override fun onActivityResult(
         requestCode: Int,
         resultCode: Int,
@@ -173,39 +277,93 @@ class MainActivity : AppCompatActivity() {
     ) {
         super.onActivityResult(requestCode, resultCode, data)
 
-        if (requestCode == pickFile && resultCode == Activity.RESULT_OK) {
+        if (requestCode != pickFile || resultCode != Activity.RESULT_OK) {
+            return
+        }
 
-            data?.data?.let { uri ->
+        val uri = data?.data ?: return
 
-                lifecycleScope.launch {
+        try {
+            contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        } catch (_: Exception) {
+            // Algunos proveedores de documentos no permiten
+            // conservar permisos persistentes.
+        }
 
-                    try {
+        lifecycleScope.launch {
 
-                        status.text = "Leyendo archivo M3U..."
+            try {
+                status.text = "Leyendo archivo M3U..."
 
-                        val text = withContext(Dispatchers.IO) {
-                            contentResolver.openInputStream(uri)
-                                ?.bufferedReader()
-                                ?.use { it.readText() }
-                                ?: ""
-                        }
-
-                        importM3u(text)
-
-                    } catch (e: Exception) {
-
-                        status.text =
-                            "Error al leer archivo: ${e.message}"
-
-                    }
+                val content = withContext(Dispatchers.IO) {
+                    contentResolver.openInputStream(uri)
+                        ?.bufferedReader()
+                        ?.use { it.readText() }
+                        ?: error("No se pudo abrir el archivo")
                 }
+
+                val parsed = parseM3u(content)
+
+                if (parsed.isEmpty()) {
+                    error("El archivo no contiene elementos M3U válidos")
+                }
+
+                val name = getDocumentName(uri)
+
+                SecureStore.addM3uSource(
+                    this@MainActivity,
+                    SecureStore.M3uSource(
+                        id = "file_${uri}",
+                        name = name,
+                        uri = uri.toString(),
+                        isFile = true
+                    )
+                )
+
+                items.addAll(parsed)
+                selectedCategory = "Inicio"
+                updateNavigation()
+                renderItems()
+
+                status.text = "${parsed.size} elementos importados"
+                toast("Lista guardada correctamente")
+
+            } catch (e: Exception) {
+                status.text = "Error al leer M3U: ${e.message}"
             }
         }
     }
 
-    // --------------------------------------------------
-    // CARGAR M3U DESDE INTERNET
-    // --------------------------------------------------
+    private fun getDocumentName(uri: Uri): String {
+        return try {
+            contentResolver.query(
+                uri,
+                null,
+                null,
+                null,
+                null
+            )?.use { cursor ->
+                val index = cursor.getColumnIndex(
+                    android.provider.OpenableColumns.DISPLAY_NAME
+                )
+
+                if (index >= 0 && cursor.moveToFirst()) {
+                    cursor.getString(index) ?: "Lista M3U"
+                } else {
+                    "Lista M3U"
+                }
+            } ?: "Lista M3U"
+        } catch (_: Exception) {
+            "Lista M3U"
+        }
+    }
+
+    // =====================================================
+    // CARGAR M3U POR INTERNET
+    // =====================================================
 
     private fun loadM3uUrl(url: String) {
 
@@ -214,39 +372,64 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
 
             try {
-
-                val text = withContext(Dispatchers.IO) {
-
-                    val request = Request.Builder()
-                        .url(url)
-                        .build()
-
-                    client.newCall(request).execute().use {
-
-                        if (!it.isSuccessful) {
-                            error("HTTP ${it.code}")
-                        }
-
-                        it.body?.string() ?: ""
-                    }
+                val content = withContext(Dispatchers.IO) {
+                    downloadText(url)
                 }
 
-                importM3u(text)
+                val parsed = parseM3u(content)
+
+                if (parsed.isEmpty()) {
+                    error("No se encontraron canales en la lista")
+                }
+
+                SecureStore.addM3uSource(
+                    this@MainActivity,
+                    SecureStore.M3uSource(
+                        id = "url_${url.hashCode()}",
+                        name = "Lista M3U ${SecureStore.getM3uSources(this@MainActivity).size + 1}",
+                        url = url,
+                        isFile = false
+                    )
+                )
+
+                items.addAll(parsed)
+
+                selectedCategory = "Inicio"
+                updateNavigation()
+                renderItems()
+
+                status.text = "${parsed.size} elementos importados"
+                toast("Lista M3U guardada correctamente")
 
             } catch (e: Exception) {
-
-                status.text =
-                    "Error M3U: ${e.message}"
-
+                status.text = "Error M3U: ${e.message}"
             }
         }
     }
 
-    // --------------------------------------------------
-    // PROCESAR LISTA M3U
-    // --------------------------------------------------
+    private fun downloadText(url: String): String {
 
-    private fun importM3u(text: String) {
+        val request = Request.Builder()
+            .url(url)
+            .header("User-Agent", "MONDE-TV/1.0")
+            .build()
+
+        return client.newCall(request).execute().use { response ->
+
+            if (!response.isSuccessful) {
+                error("Error HTTP ${response.code}")
+            }
+
+            response.body?.string()
+                ?: error("Respuesta vacía")
+        }
+    }
+
+    // =====================================================
+    // PROCESADOR M3U
+    // =====================================================
+
+    private fun parseM3u(text: String): List<MediaItem> {
 
         val imported = mutableListOf<MediaItem>()
 
@@ -262,17 +445,27 @@ class MainActivity : AppCompatActivity() {
 
                 line.startsWith("#EXTINF", true) -> {
 
-                    name = line.substringAfterLast(",")
-                        .trim()
-                        .ifBlank { "Canal" }
+                    val comma = line.lastIndexOf(',')
+
+                    name = if (comma >= 0) {
+                        line.substring(comma + 1).trim()
+                    } else {
+                        "Canal"
+                    }
+
+                    if (name.isBlank()) name = "Canal"
 
                     group = getM3uAttribute(line, "group-title")
                     logo = getM3uAttribute(line, "tvg-logo")
                 }
 
+                line.startsWith("#EXTGRP:", true) -> {
+                    group = line.substringAfter(":").trim()
+                }
+
                 line.isNotBlank() &&
-                        !line.startsWith("#") &&
-                        name.isNotBlank() -> {
+                    !line.startsWith("#") &&
+                    name.isNotBlank() -> {
 
                     imported.add(
                         MediaItem(
@@ -291,20 +484,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        if (imported.isEmpty()) {
-            status.text = "No se encontraron canales en la lista."
-            toast("No se encontraron elementos M3U")
-            return
-        }
-
-        items.clear()
-        items.addAll(imported)
-
-        selectedCategory = "Inicio"
-        updateNavigation()
-        renderItems()
-
-        toast("${items.size} elementos importados")
+        return imported
     }
 
     private fun getM3uAttribute(
@@ -312,15 +492,17 @@ class MainActivity : AppCompatActivity() {
         key: String
     ): String {
 
-        return Regex(
-            "$key=\"([^\"]*)\"",
+        val regex = Regex(
+            """(?:^|\s)$key\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s,]+))""",
             RegexOption.IGNORE_CASE
-        ).find(line)?.groupValues?.get(1) ?: ""
-    }
+        )
 
-    // --------------------------------------------------
-    // CLASIFICACIÓN DE CONTENIDO
-    // --------------------------------------------------
+        val match = regex.find(line) ?: return ""
+
+        return match.groupValues.drop(1)
+            .firstOrNull { it.isNotEmpty() }
+            ?: ""
+    }
 
     private fun classify(
         name: String,
@@ -357,9 +539,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // --------------------------------------------------
-    // CONEXIÓN XTREAM CODES
-    // --------------------------------------------------
+    // =====================================================
+    // XTREAM CODES
+    // =====================================================
 
     private fun connectXtream() {
 
@@ -381,9 +563,19 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        xtreamServer = server
-        xtreamUser = user
-        xtreamPassword = pass
+        val account = SecureStore.XtreamAccount(
+            server = server,
+            username = user,
+            password = pass
+        )
+
+        loadXtreamCatalog(account, true)
+    }
+
+    private fun loadXtreamCatalog(
+        account: SecureStore.XtreamAccount,
+        saveAccount: Boolean
+    ) {
 
         status.text = "Conectando con Xtream..."
 
@@ -394,42 +586,72 @@ class MainActivity : AppCompatActivity() {
                 val catalog = withContext(Dispatchers.IO) {
 
                     val auth = requestXtream(
-                        "player_api.php?username=${enc(user)}&password=${enc(pass)}"
+                        account,
+                        "player_api.php?username=${enc(account.username)}" +
+                            "&password=${enc(account.password)}"
                     )
 
                     val userInfo = auth.optJSONObject("user_info")
+                        ?: error("Respuesta de autenticación no válida")
 
-                    if (userInfo?.optInt("auth", 0) != 1) {
+                    val authValue = userInfo.optInt("auth", 0)
+                    val accountStatus = userInfo.optString("status")
+
+                    if (
+                        authValue != 1 &&
+                        !accountStatus.equals("Active", true)
+                    ) {
                         error("Usuario o contraseña no válidos")
                     }
 
                     val result = mutableListOf<MediaItem>()
 
-                    // CANALES EN VIVO
-
-                    val live = requestXtream(
-                        "player_api.php?username=${enc(user)}&password=${enc(pass)}&action=get_live_streams"
+                    val liveCategories = getCategoryNames(
+                        account,
+                        "get_live_categories"
                     )
 
-                    val liveArray = live.optJSONArray("data")
-                        ?: live.optJSONArray("streams")
-                        ?: JSONArray()
+                    val vodCategories = getCategoryNames(
+                        account,
+                        "get_vod_categories"
+                    )
+
+                    val seriesCategories = getCategoryNames(
+                        account,
+                        "get_series_categories"
+                    )
+
+                    // TV EN VIVO
+
+                    val live = requestXtream(
+                        account,
+                        playerPath(account, "get_live_streams")
+                    )
+
+                    val liveArray = extractArray(
+                        live,
+                        "data",
+                        "streams"
+                    )
 
                     for (i in 0 until liveArray.length()) {
 
                         val obj = liveArray.optJSONObject(i) ?: continue
 
                         val id = obj.optString("stream_id")
+                        if (id.isBlank()) continue
+
                         val name = obj.optString("name", "Canal")
                         val logo = obj.optString("stream_icon")
-                        val group = obj.optString("category_name")
-
-                        if (id.isBlank()) continue
+                        val categoryId = obj.optString("category_id")
+                        val group = liveCategories[categoryId] ?: ""
 
                         result.add(
                             MediaItem(
                                 name = name,
-                                url = "$server/live/$user/$pass/$id.ts",
+                                url = "${account.server}/live/" +
+                                    "${enc(account.username)}/" +
+                                    "${enc(account.password)}/$id.ts",
                                 group = group,
                                 logo = logo,
                                 category = "TV en vivo"
@@ -440,398 +662,14 @@ class MainActivity : AppCompatActivity() {
                     // PELÍCULAS
 
                     val vod = requestXtream(
-                        "player_api.php?username=${enc(user)}&password=${enc(pass)}&action=get_vod_streams"
+                        account,
+                        playerPath(account, "get_vod_streams")
                     )
 
-                    val vodArray = vod.optJSONArray("data")
-                        ?: vod.optJSONArray("streams")
-                        ?: JSONArray()
-
-                    for (i in 0 until vodArray.length()) {
-
-                        val obj = vodArray.optJSONObject(i) ?: continue
-
-                        val id = obj.optString("stream_id")
-                        val name = obj.optString("name", "Película")
-                        val logo = obj.optString("stream_icon")
-                        val extension = obj.optString(
-                            "container_extension",
-                            "mp4"
-                        )
-
-                        if (id.isBlank()) continue
-
-                        result.add(
-                            MediaItem(
-                                name = name,
-                                url = "$server/movie/$user/$pass/$id.$extension",
-                                group = obj.optString("category_name"),
-                                logo = logo,
-                                category = "Películas"
-                            )
-                        )
-                    }
-
-                    // SERIES
-
-                    val series = requestXtream(
-                        "player_api.php?username=${enc(user)}&password=${enc(pass)}&action=get_series"
+                    val vodArray = extractArray(
+                        vod,
+                        "data",
+                        "streams"
                     )
 
-                    val seriesArray = series.optJSONArray("data")
-                        ?: series.optJSONArray("series")
-                        ?: JSONArray()
-
-                    for (i in 0 until seriesArray.length()) {
-
-                        val obj = seriesArray.optJSONObject(i) ?: continue
-
-                        val id = obj.optString("series_id")
-                        val name = obj.optString("name", "Serie")
-                        val logo = obj.optString("cover")
-
-                        if (id.isBlank()) continue
-
-                        result.add(
-                            MediaItem(
-                                name = name,
-                                url = "xtream-series:$id",
-                                group = obj.optString("category_name"),
-                                logo = logo,
-                                category = "Series"
-                            )
-                        )
-                    }
-
-                    result
-                }
-
-                if (catalog.isEmpty()) {
-                    status.text =
-                        "Conexión correcta, pero no se encontraron contenidos."
-                    return@launch
-                }
-
-                items.clear()
-                items.addAll(catalog)
-
-                selectedCategory = "Inicio"
-                updateNavigation()
-                renderItems()
-
-                toast("Catálogo Xtream cargado")
-
-            } catch (e: Exception) {
-
-                status.text =
-                    "Error Xtream: ${e.message}"
-
-            }
-        }
-    }
-
-    private fun requestXtream(path: String): JSONObject {
-
-        val url = "$xtreamServer/$path"
-
-        val request = Request.Builder()
-            .url(url)
-            .build()
-
-        return client.newCall(request).execute().use {
-
-            if (!it.isSuccessful) {
-                error("HTTP ${it.code}")
-            }
-
-            JSONObject(it.body?.string() ?: "{}")
-        }
-    }
-
-    private fun enc(value: String): String {
-        return URLEncoder.encode(value, "UTF-8")
-    }
-
-    // --------------------------------------------------
-    // ABRIR SERIES Y EPISODIOS
-    // --------------------------------------------------
-
-    private fun openSeries(item: MediaItem) {
-
-        val seriesId = item.url.substringAfter("xtream-series:")
-
-        status.text = "Buscando episodios de ${item.name}..."
-
-        lifecycleScope.launch {
-
-            try {
-
-                val episodeUrl = withContext(Dispatchers.IO) {
-
-                    val info = requestXtream(
-                        "player_api.php?username=${enc(xtreamUser)}" +
-                                "&password=${enc(xtreamPassword)}" +
-                                "&action=get_series_info" +
-                                "&series_id=${enc(seriesId)}"
-                    )
-
-                    val episodes = info.optJSONObject("episodes")
-                        ?: error("No se encontraron episodios")
-
-                    var selectedEpisode: JSONObject? = null
-
-                    val keys = episodes.keys()
-
-                    while (keys.hasNext() && selectedEpisode == null) {
-
-                        val key = keys.next()
-                        val season = episodes.optJSONArray(key) ?: continue
-
-                        for (i in 0 until season.length()) {
-
-                            val episode = season.optJSONObject(i)
-                                ?: continue
-
-                            if (episode.optString("id").isNotBlank()) {
-                                selectedEpisode = episode
-                                break
-                            }
-                        }
-                    }
-
-                    val episode = selectedEpisode
-                        ?: error("La serie no tiene episodios disponibles")
-
-                    val id = episode.optString("id")
-                    val extension = episode.optString(
-                        "container_extension",
-                        "mp4"
-                    )
-
-                    "$xtreamServer/series/$xtreamUser/$xtreamPassword/$id.$extension"
-                }
-
-                openPlayer(
-                    item.name,
-                    episodeUrl
-                )
-
-            } catch (e: Exception) {
-
-                status.text =
-                    "No se pudo abrir la serie: ${e.message}"
-
-            }
-        }
-    }
-
-    // --------------------------------------------------
-    // MOSTRAR CATÁLOGOS Y TARJETAS
-    // --------------------------------------------------
-
-    private fun renderItems() {
-
-        list.removeAllViews()
-
-        val visibleItems = if (selectedCategory == "Inicio") {
-            items
-        } else {
-            items.filter {
-                it.category.equals(
-                    selectedCategory,
-                    ignoreCase = true
-                )
-            }
-        }
-
-        status.text =
-            "${visibleItems.size} elementos · ${selectedCategory}"
-
-        if (visibleItems.isEmpty()) {
-
-            val empty = TextView(this).apply {
-                text = if (items.isEmpty()) {
-                    "Importa una lista M3U o conecta tu cuenta Xtream para comenzar."
-                } else {
-                    "No hay contenido en esta categoría."
-                }
-
-                textSize = 16f
-                setTextColor(Color.LTGRAY)
-                setPadding(dp(12), dp(24), dp(12), dp(24))
-            }
-
-            list.addView(empty)
-            return
-        }
-
-        val displayCategories = if (selectedCategory == "Inicio") {
-            listOf("TV en vivo", "Películas", "Series", "Anime")
-        } else {
-            listOf(selectedCategory)
-        }
-
-        displayCategories.forEach { category ->
-
-            val categoryItems = visibleItems.filter {
-                it.category.equals(category, ignoreCase = true)
-            }
-
-            if (categoryItems.isEmpty()) return@forEach
-
-            val title = TextView(this).apply {
-
-                text = "$category  ›"
-                textSize = 20f
-                setTextColor(Color.WHITE)
-                setTypeface(null, Typeface.BOLD)
-                setPadding(
-                    dp(8),
-                    dp(18),
-                    dp(8),
-                    dp(10)
-                )
-            }
-
-            list.addView(title)
-
-            val scroll = HorizontalScrollView(this).apply {
-                isHorizontalScrollBarEnabled = false
-                isFocusable = false
-            }
-
-            val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-            }
-
-            categoryItems.take(100).forEach { item ->
-
-                val card = LinearLayout(this).apply {
-
-                    orientation = LinearLayout.VERTICAL
-                    gravity = Gravity.CENTER
-
-                    isFocusable = true
-                    isFocusableInTouchMode = true
-                    isClickable = true
-
-                    background = getDrawable(R.drawable.tv_focus)
-
-                    setPadding(
-                        dp(8),
-                        dp(10),
-                        dp(8),
-                        dp(8)
-                    )
-
-                    contentDescription = "Abrir ${item.name}"
-                }
-
-                val logo = ImageView(this).apply {
-
-                    layoutParams = LinearLayout.LayoutParams(
-                        dp(125),
-                        dp(82)
-                    )
-
-                    scaleType = ImageView.ScaleType.FIT_CENTER
-
-                    setBackgroundColor(
-                        Color.rgb(40, 40, 48)
-                    )
-
-                    contentDescription = "Imagen de ${item.name}"
-
-                    if (item.logo.isNotBlank()) {
-
-                        load(item.logo) {
-                            crossfade(true)
-                        }
-                    }
-                }
-
-                val name = TextView(this).apply {
-
-                    text = item.name
-                    textSize = 13f
-                    setTextColor(Color.WHITE)
-                    gravity = Gravity.CENTER
-                    maxLines = 2
-
-                    setPadding(
-                        dp(3),
-                        dp(8),
-                        dp(3),
-                        dp(3)
-                    )
-                }
-
-                card.addView(logo)
-                card.addView(name)
-
-                card.layoutParams = LinearLayout.LayoutParams(
-                    dp(145),
-                    dp(150)
-                ).apply {
-                    setMargins(
-                        dp(5),
-                        dp(3),
-                        dp(5),
-                        dp(8)
-                    )
-                }
-
-                card.setOnClickListener {
-
-                    if (item.url.startsWith("xtream-series:")) {
-                        openSeries(item)
-                    } else {
-                        openPlayer(item.name, item.url)
-                    }
-                }
-
-                row.addView(card)
-            }
-
-            scroll.addView(row)
-            list.addView(scroll)
-        }
-    }
-
-    // --------------------------------------------------
-    // ABRIR REPRODUCTOR
-    // --------------------------------------------------
-
-    private fun openPlayer(
-        name: String,
-        url: String
-    ) {
-
-        startActivity(
-            Intent(this, PlayerActivity::class.java).apply {
-                putExtra("name", name)
-                putExtra("url", url)
-            }
-        )
-    }
-
-    // --------------------------------------------------
-    // UTILIDADES
-    // --------------------------------------------------
-
-    private fun dp(value: Int): Int {
-
-        return (
-            value * resources.displayMetrics.density
-        ).toInt()
-    }
-
-    private fun toast(message: String) {
-
-        Toast.makeText(
-            this,
-            message,
-            Toast.LENGTH_LONG
-        ).show()
-    }
-}
+                    for (i in 0 unti
