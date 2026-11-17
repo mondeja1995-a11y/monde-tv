@@ -1,21 +1,295 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
- android:layout_width="match_parent" android:layout_height="match_parent" android:background="#101014">
- <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="18dp">
-  <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="MONDE TV" android:textColor="#E50914" android:textSize="30sp" android:textStyle="bold"/>
-  <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Todo tu entretenimiento, en un solo lugar." android:textColor="#FFFFFF" android:textSize="16sp" android:paddingBottom="16dp"/>
-  <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="INICIO  •  TV EN VIVO  •  PELÍCULAS  •  SERIES  •  ANIME" android:textColor="#FFFFFF" android:textStyle="bold" android:padding="12dp" android:background="#24242C"/>
-  <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Añadir lista M3U" android:textColor="#FFFFFF" android:textSize="20sp" android:textStyle="bold" android:paddingTop="20dp"/>
-  <EditText android:id="@+id/m3uUrl" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="https://servidor/lista.m3u" android:singleLine="true" android:textColor="#FFFFFF" android:textColorHint="#999999" android:inputType="textUri"/>
-  <Button android:id="@+id/loadM3u" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Cargar enlace M3U"/>
-  <Button android:id="@+id/openFile" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Elegir archivo M3U"/>
-  <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Conectar Xtream Codes" android:textColor="#FFFFFF" android:textSize="20sp" android:textStyle="bold" android:paddingTop="18dp"/>
-  <EditText android:id="@+id/server" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="URL del servidor" android:textColor="#FFFFFF" android:textColorHint="#999999" android:singleLine="true"/>
-  <EditText android:id="@+id/username" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Usuario" android:textColor="#FFFFFF" android:textColorHint="#999999" android:singleLine="true"/>
-  <EditText android:id="@+id/password" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Contraseña" android:textColor="#FFFFFF" android:textColorHint="#999999" android:inputType="textPassword" android:singleLine="true"/>
-  <Button android:id="@+id/connectXtream" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Conectar"/>
-  <TextView android:id="@+id/status" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Todavía no hay contenido. Añade una lista propia." android:textColor="#CCCCCC" android:paddingTop="14dp"/>
-  <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Canales y contenido" android:textColor="#FFFFFF" android:textSize="20sp" android:textStyle="bold" android:paddingTop="20dp"/>
-  <LinearLayout android:id="@+id/channelList" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"/>
- </LinearLayout>
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#09090D"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingBottom="28dp">
+
+        <!-- ENCABEZADO -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="MONDE"
+                android:textColor="#EDEDED"
+                android:textSize="27sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=" TV"
+                android:textColor="#E50914"
+                android:textSize="27sp"
+                android:textStyle="bold" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="PREMIUM"
+                android:textColor="#E50914"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- NAVEGACIÓN -->
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="#B50914"
+                    android:padding="10dp"
+                    android:text="INICIO"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:padding="10dp"
+                    android:text="TV EN VIVO"
+                    android:textColor="#CCCCCC" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:padding="10dp"
+                    android:text="PELÍCULAS"
+                    android:textColor="#CCCCCC" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:padding="10dp"
+                    android:text="SERIES"
+                    android:textColor="#CCCCCC" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:padding="10dp"
+                    android:text="ANIME"
+                    android:textColor="#CCCCCC" />
+            </LinearLayout>
+        </HorizontalScrollView>
+
+        <!-- PORTADA PRINCIPAL -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="230dp"
+            android:layout_margin="14dp"
+            android:background="#251116"
+            android:gravity="bottom"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="TU ENTRETENIMIENTO"
+                android:textColor="#FF5963"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="TODO COMIENZA AQUÍ"
+                android:textColor="#FFFFFF"
+                android:textSize="27sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="Películas, series, anime y televisión en un solo lugar."
+                android:textColor="#D0D0D0"
+                android:textSize="14sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:background="#E50914"
+                android:paddingStart="18dp"
+                android:paddingEnd="18dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp"
+                android:text="MONDE TV"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- ESTADO -->
+        <TextView
+            android:id="@+id/status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="20dp"
+            android:layout_marginEnd="20dp"
+            android:padding="12dp"
+            android:background="#18181F"
+            android:text="Todavía no hay contenido. Añade tu lista."
+            android:textColor="#CCCCCC"
+            android:textSize="13sp" />
+
+        <!-- CONTENIDO -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="20dp"
+            android:layout_marginTop="24dp"
+            android:text="Canales y contenido"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:id="@+id/channelList"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="12dp" />
+
+        <!-- IMPORTAR LISTA -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="14dp"
+            android:background="#18181F"
+            android:orientation="vertical"
+            android:padding="18dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="AÑADIR LISTA M3U"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/m3uUrl"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:hint="https://servidor/lista.m3u"
+                android:inputType="textUri"
+                android:singleLine="true"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#888888" />
+
+            <Button
+                android:id="@+id/loadM3u"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Cargar enlace M3U"
+                android:textAllCaps="false" />
+
+            <Button
+                android:id="@+id/openFile"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Elegir archivo M3U"
+                android:textAllCaps="false" />
+        </LinearLayout>
+
+        <!-- XTREAM CODES -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="14dp"
+            android:layout_marginEnd="14dp"
+            android:background="#18181F"
+            android:orientation="vertical"
+            android:padding="18dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="CONECTAR XTREAM CODES"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/server"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="URL del servidor"
+                android:singleLine="true"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#888888" />
+
+            <EditText
+                android:id="@+id/username"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Usuario"
+                android:singleLine="true"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#888888" />
+
+            <EditText
+                android:id="@+id/password"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Contraseña"
+                android:inputType="textPassword"
+                android:singleLine="true"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#888888" />
+
+            <Button
+                android:id="@+id/connectXtream"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Conectar"
+                android:textAllCaps="false" />
+        </LinearLayout>
+
+        <!-- PIE -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:gravity="center"
+            android:text="MONDE TV  •  TU MUNDO DE ENTRETENIMIENTO"
+            android:textColor="#666666"
+            android:textSize="10sp" />
+
+    </LinearLayout>
 </ScrollView>
+                 
