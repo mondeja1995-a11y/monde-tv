@@ -15,7 +15,10 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
 import java.net.URLEncoder
-
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import coil.load
 class MainActivity : AppCompatActivity() {
     private val client = OkHttpClient()
     private val items = mutableListOf<MediaItem>()
@@ -118,21 +121,107 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
-    private fun renderItems() {
-        list.removeAllViews()
-        status.text = "${items.size} elementos importados · ${items.count { it.category == "TV en vivo" }} canales"
-        items.take(300).forEach { item ->
-            val b = Button(this).apply {
-                text = "${item.name}  ›"
-                gravity = Gravity.START or Gravity.CENTER_VERTICAL
-                setOnClickListener {
-                    startActivity(Intent(this@MainActivity, PlayerActivity::class.java).apply {
-                        putExtra("name", item.name); putExtra("url", item.url)
-                    })
+    
+private fun renderItems() {
+    list.removeAllViews()
+
+    status.text = "${items.size} elementos importados · ${items.count { it.category == "TV en vivo" }} canales"
+
+    val categories = listOf("TV en vivo", "Películas", "Series", "Anime")
+
+    val groups = items.groupBy { it.category }
+
+    val orderedCategories = categories + groups.keys.filter { it !in categories }
+
+    orderedCategories.forEach { category ->
+        val categoryItems = groups[category] ?: return@forEach
+
+        if (categoryItems.isEmpty()) return@forEach
+
+        val title = TextView(this).apply {
+            text = "$category  ›"
+            textSize = 19f
+            setTextColor(Color.WHITE)
+            setTypeface(null, Typeface.BOLD)
+            setPadding(dp(8), dp(18), dp(8), dp(10))
+        }
+
+        list.addView(title)
+
+        val scroll = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+        }
+
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
+
+        categoryItems.take(100).forEach { item ->
+
+            val card = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(dp(8), dp(10), dp(8), dp(8))
+
+                val bg = GradientDrawable().apply {
+                    setColor(Color.rgb(29, 29, 38))
+                    cornerRadius = dp(10).toFloat()
+                }
+
+                background = bg
+            }
+
+            val logo = ImageView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    dp(125), dp(78)
+                )
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                setBackgroundColor(Color.rgb(40, 40, 48))
+
+                if (item.logo.isNotBlank()) {
+                    load(item.logo) {
+                        crossfade(true)
+                    }
                 }
             }
-            list.addView(b)
+
+            val name = TextView(this).apply {
+                text = item.name
+                textSize = 13f
+                setTextColor(Color.WHITE)
+                gravity = Gravity.CENTER
+                maxLines = 2
+                setPadding(dp(3), dp(8), dp(3), dp(3))
+            }
+
+            card.addView(logo)
+            card.addView(name)
+
+            card.layoutParams = LinearLayout.LayoutParams(
+                dp(145), dp(140)
+            ).apply {
+                setMargins(dp(5), dp(3), dp(5), dp(8))
+            }
+
+            card.setOnClickListener {
+                startActivity(
+                    Intent(this@MainActivity, PlayerActivity::class.java).apply {
+                        putExtra("name", item.name)
+                        putExtra("url", item.url)
+                    }
+                )
+            }
+
+            row.addView(card)
         }
+
+        scroll.addView(row)
+        list.addView(scroll)
     }
+}
+
+private fun dp(value: Int): Int {
+    return (value * resources.displayMetrics.density).toInt()
+}
     private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_LONG).show()
 }
